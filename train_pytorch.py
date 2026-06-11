@@ -1,4 +1,5 @@
 import re
+import os
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -87,8 +88,13 @@ class SentimentModel(nn.Module):
 
         self.fc = nn.Linear(
             embed_dim,
-            2
+            64
         )
+        self.relu = nn.ReLU()
+        self.dropout2 = nn.Dropout(0.3)
+        self.output = nn.Linear(
+            64,
+            2)
 
     def forward(self, x):
         embedded = self.embedding(x)
@@ -138,7 +144,8 @@ def main():
         X,
         y,
         test_size=0.2,
-        random_state=42
+        random_state=42,
+        stratify=y
     )
 
     train_dataset = SentimentDataset(
@@ -269,6 +276,26 @@ def main():
 
     print(f"\nTest Accuracy: {test_accuracy:.2f}%")
 
+    os.makedirs(
+        "artifacts",
+        exist_ok=True
+    )
+
+    torch.save(
+        model.state_dict(),
+        "artifacts/pytorch_model.pt"
+    )
+    import joblib
+
+
+    joblib.dump(
+        vocab,
+        "artifacts/vocab.pkl"
+    )
+
+    print("\nPyTorch artifacts saved.")
+
 
 if __name__ == "__main__":
     main()
+
