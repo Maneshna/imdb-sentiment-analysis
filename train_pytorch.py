@@ -179,7 +179,7 @@ def main():
         lr=0.001
     )
 
-    EPOCHS = 30
+    EPOCHS = 10
 
     for epoch in range(EPOCHS):
 
