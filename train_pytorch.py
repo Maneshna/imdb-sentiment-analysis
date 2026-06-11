@@ -74,4 +74,11 @@ padded = pad_sequence(sample_ids, max_length=20)
 print(padded)
 print(len(padded))
 
+MAX_LENGTH=200
+
+texts = [pad_sequence(encode_text(text, vocab), MAX_LENGTH)
+        for text in df["cleaned_review"]]
+labels = df["sentiment"].map({"negative":0,"positive":1}).tolist()
+
+
 
