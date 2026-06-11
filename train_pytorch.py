@@ -44,8 +44,7 @@ def build_vocab(texts, max_vocab_size=20000):
 
 df=load_data("data/sentiment.csv")
 vocab=build_vocab(df["cleaned_review"])
-print("Vocabulary Size:", len(vocab))
-print(list(vocab.items())[:20])
+
 
 
 #IDs
@@ -56,11 +55,11 @@ def encode_text(text, vocab):
     return encoded
 
 sample = df["cleaned_review"].iloc[0]
-print(sample[:100])
+
 encoded = encode_text(
     sample, vocab)
 
-print(encoded[:20])
+
 
 def pad_sequence(sequence, max_length, pad_idx=0):
     if len(sequence) > max_length:
@@ -71,14 +70,78 @@ sample_ids = encode_text(sample, vocab)
 
 padded = pad_sequence(sample_ids, max_length=20)
                       
-print(padded)
-print(len(padded))
+
 
 MAX_LENGTH=200
 
 texts = [pad_sequence(encode_text(text, vocab), MAX_LENGTH)
         for text in df["cleaned_review"]]
 labels = df["sentiment"].map({"negative":0,"positive":1}).tolist()
+
+#convert into tensors
+
+X=torch.tensor(texts,dtype=torch.long)
+y=torch.tensor(labels, dtype=torch.long)
+
+
+
+#train test split
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42, test_size=0.2)
+
+from torch.utils.data import DataLoader, Dataset
+
+class SentimentDataset(Dataset):
+    def __init__(self, X, y):
+        self.X=X
+        self.y=y
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.y[idx]
+    
+#create the dataloaders
+
+train_dataset = SentimentDataset(X_train, y_train)
+
+test_dataset = SentimentDataset(X_test, y_test)
+
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=32)
+
+import torch.nn as nn
+class SentimentModel(nn.Module):
+    def __init__(self, vocab_size, embed_dim=128):
+        super().__init__()
+
+        self.embedding = nn.Embedding(
+            vocab_size, embed_dim, padding_idx=0)
+        self.fc =nn.Linear(embed_dim, 2)
+
+    def forward(self, x):
+        embedded=self.embedding(x)
+        pooled=embedded.mean(dim=1)
+        output = self.fc(pooled)
+        return output
+
+
+#initialize the model
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+model = SentimentModel(vocab_size=len(vocab)).to(device)
+    
+print(model)
+print(device)
+
+
+
+
+
 
 
 
