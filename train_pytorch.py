@@ -172,7 +172,7 @@ def main():
 
     model = SentimentModel(
         vocab_size=len(vocab),
-        embed_dim=256
+        embed_dim=128
     ).to(device)
 
     criterion = nn.CrossEntropyLoss()
