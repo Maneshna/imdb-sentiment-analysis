@@ -83,6 +83,8 @@ class SentimentModel(nn.Module):
             padding_idx=0
         )
 
+        self.dropout = nn.Dropout(0.5)
+
         self.fc = nn.Linear(
             embed_dim,
             2
@@ -90,6 +92,7 @@ class SentimentModel(nn.Module):
 
     def forward(self, x):
         embedded = self.embedding(x)
+        embedded = self.dropout(embedded)
         pooled = embedded.mean(dim=1)
         output = self.fc(pooled)
         return output
