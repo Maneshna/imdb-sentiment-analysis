@@ -144,16 +144,13 @@ def predict_pytorch(text):
     with torch.no_grad():
 
         outputs = pytorch_model(tensor)
-        print("Output Shape:", outputs.shape)
+        
         probabilities = torch.softmax(outputs,dim=1)
 
         prediction = torch.argmax(probabilities,dim=1).item()
 
         confidence = probabilities.max().item()
-        print("Outputs:", outputs)
-        print("Probabilities:", probabilities)
-        print("Prediction:", prediction)
-        print("Confidence:", confidence)
+        
 
     sentiment = ("positive"
         if prediction == 1
@@ -164,6 +161,10 @@ def predict_pytorch(text):
         sentiment,
         confidence
     )
+   
+
+
+
 
 
 @app.get("/")

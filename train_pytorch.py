@@ -97,11 +97,20 @@ class SentimentModel(nn.Module):
             2)
 
     def forward(self, x):
+
         embedded = self.embedding(x)
-        embedded = self.dropout(embedded)
+
+        embedded = self.dropout(
+            embedded
+        )
+
         pooled = embedded.mean(dim=1)
-        output = self.fc(pooled)
-        return output
+
+        x = self.fc(pooled)
+        x = self.relu(x)
+        x = self.dropout2(x)
+        x = self.output(x)
+        return x
 
 
 def main():
@@ -295,7 +304,37 @@ def main():
 
     print("\nPyTorch artifacts saved.")
 
+    sample = "I absolutely hated this movie. The acting was terrible."
+
+    sample_ids = pad_sequence(
+        encode_text(
+            clean_text(sample),
+            vocab
+        ),
+        MAX_LENGTH
+    )
+
+    sample_tensor = torch.tensor(
+        [sample_ids],
+        dtype=torch.long
+    ).to(device)
+
+    loaded_model = SentimentModel(vocab_size=len(vocab),embed_dim=128).to(device)
+
+    loaded_model.load_state_dict(torch.load("artifacts/pytorch_model.pt"))
+    loaded_model.eval()
+
+    with torch.no_grad():
+
+        output = loaded_model(sample_tensor)
+
+        probs = torch.softmax(
+            output,
+            dim=1
+        )
+
+        print("Loaded Model:", probs)
+
 
 if __name__ == "__main__":
     main()
-
