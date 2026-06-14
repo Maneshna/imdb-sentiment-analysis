@@ -3,10 +3,13 @@ import os
 import pandas as pd
 import torch
 import torch.nn as nn
-
+import joblib
+import matplotlib.pyplot as plt
+import seaborn as sns
 from collections import Counter
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader
+from sklearn.metrics import confusion_matrix, classification_report
 
 
 def clean_text(text):
@@ -78,31 +81,20 @@ class SentimentModel(nn.Module):
     def __init__(self, vocab_size, embed_dim=128):
         super().__init__()
 
-        self.embedding = nn.Embedding(
-            vocab_size,
-            embed_dim,
-            padding_idx=0
-        )
+        self.embedding = nn.Embedding(vocab_size,embed_dim,padding_idx=0)
 
         self.dropout = nn.Dropout(0.5)
 
-        self.fc = nn.Linear(
-            embed_dim,
-            64
-        )
+        self.fc = nn.Linear(embed_dim,64)
         self.relu = nn.ReLU()
         self.dropout2 = nn.Dropout(0.3)
-        self.output = nn.Linear(
-            64,
-            2)
+        self.output = nn.Linear(64,2)
 
     def forward(self, x):
 
         embedded = self.embedding(x)
 
-        embedded = self.dropout(
-            embedded
-        )
+        embedded = self.dropout(embedded)
 
         pooled = embedded.mean(dim=1)
 
@@ -136,47 +128,22 @@ def main():
         "positive": 1
     }).tolist()
 
-    X = torch.tensor(
-        texts,
-        dtype=torch.long
-    )
+    X = torch.tensor(texts,dtype=torch.long)
 
-    y = torch.tensor(
-        labels,
-        dtype=torch.long
-    )
+    y = torch.tensor(labels,dtype=torch.long)
 
     print("X Shape:", X.shape)
     print("y Shape:", y.shape)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.2,
-        random_state=42,
-        stratify=y
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,random_state=42,stratify=y)
 
-    train_dataset = SentimentDataset(
-        X_train,
-        y_train
-    )
+    train_dataset = SentimentDataset(X_train,y_train)
 
-    test_dataset = SentimentDataset(
-        X_test,
-        y_test
-    )
+    test_dataset = SentimentDataset(X_test,y_test)
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=32,
-        shuffle=True
-    )
+    train_loader = DataLoader(train_dataset,batch_size=32,shuffle=True)
 
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=32
-    )
+    test_loader = DataLoader(test_dataset,batch_size=32)
 
     device = torch.device(
         "cuda"
@@ -186,19 +153,16 @@ def main():
 
     print("Using:", device)
 
-    model = SentimentModel(
-        vocab_size=len(vocab),
-        embed_dim=128
-    ).to(device)
+    model = SentimentModel(vocab_size=len(vocab),embed_dim=128).to(device)
 
     criterion = nn.CrossEntropyLoss()
 
-    optimizer = torch.optim.Adam(
-        model.parameters(),
-        lr=0.001
-    )
+    optimizer = torch.optim.Adam(model.parameters(),lr=0.001)
 
     EPOCHS = 10
+
+    train_losses = []
+    train_accuracies = []
 
     for epoch in range(EPOCHS):
 
@@ -233,9 +197,7 @@ def main():
                 dim=1
             )
 
-            correct += (
-                predictions == batch_y
-            ).sum().item()
+            correct += (predictions == batch_y).sum().item()
 
             total += batch_y.size(0)
 
@@ -243,10 +205,12 @@ def main():
             correct / total
         ) * 100
 
-        avg_loss = (
-            total_loss /
-            len(train_loader)
-        )
+        
+        avg_loss = (total_loss /
+            len(train_loader))
+
+        train_losses.append(avg_loss)
+        train_accuracies.append(accuracy)
 
         print(
             f"Epoch {epoch+1}/{EPOCHS} | "
@@ -258,6 +222,8 @@ def main():
 
     correct = 0
     total = 0
+    all_predictions = []
+    all_labels = []
 
     with torch.no_grad():
 
@@ -268,14 +234,13 @@ def main():
 
             outputs = model(batch_X)
 
-            predictions = torch.argmax(
-                outputs,
-                dim=1
-            )
+            predictions = torch.argmax(outputs,dim=1)
 
-            correct += (
-                predictions == batch_y
-            ).sum().item()
+            all_predictions.extend(predictions.cpu().numpy())
+
+            all_labels.extend(batch_y.cpu().numpy())
+
+            correct += (predictions == batch_y).sum().item()
 
             total += batch_y.size(0)
 
@@ -285,16 +250,20 @@ def main():
 
     print(f"\nTest Accuracy: {test_accuracy:.2f}%")
 
-    os.makedirs(
-        "artifacts",
-        exist_ok=True
-    )
+    #making a confusion matrix
+    
+    cm = confusion_matrix(all_labels,all_predictions)
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(cm,annot=True,fmt="d",cmap="Blues",xticklabels=["Negative", "Positive"], yticklabels=["Negative", "Positive"])
+    plt.title("Confusion Matrix")
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.savefig("artifacts/confusion_matrix.png")
+    plt.close()
 
-    torch.save(
-        model.state_dict(),
-        "artifacts/pytorch_model.pt"
-    )
-    import joblib
+    os.makedirs("artifacts",exist_ok=True)
+
+    torch.save(model.state_dict(),"artifacts/pytorch_model.pt")
 
 
     joblib.dump(
@@ -302,15 +271,32 @@ def main():
         "artifacts/vocab.pkl"
     )
 
+    #plotting the figues
+
+
+    plt.figure(figsize=(8,5))
+    plt.plot(range(1, EPOCHS + 1),train_losses,marker="o")
+    plt.title("Training Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.savefig("artifacts/training_loss.png")
+
+    plt.close()
+
+    plt.figure(figsize=(8,8))
+    plt.plot(range(1, EPOCHS + 1), train_accuracies, marker="o")
+    plt.title("Training Accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.savefig("artifacts/training_accuracy.png")
+    plt.close()
+
     print("\nPyTorch artifacts saved.")
 
     sample = "I absolutely hated this movie. The acting was terrible."
 
     sample_ids = pad_sequence(
-        encode_text(
-            clean_text(sample),
-            vocab
-        ),
+        encode_text(clean_text(sample),vocab),
         MAX_LENGTH
     )
 
@@ -328,10 +314,7 @@ def main():
 
         output = loaded_model(sample_tensor)
 
-        probs = torch.softmax(
-            output,
-            dim=1
-        )
+        probs = torch.softmax(output,dim=1)
 
         print("Loaded Model:", probs)
 
