@@ -202,7 +202,7 @@ Example Response:
 
 ## Author
 
-Maneshna
+Maneshna @ Github
 
 GitHub:
 [Github Profile](https://github.com/Maneshna)
