@@ -1,9 +1,8 @@
 import streamlit as st
 import requests
-import plotly.graph_objects as go
 
 st.set_page_config(
-    page_title="IMDb Sentiment Analyzer",
+    page_title="AI Movie Review Analyzer",
     page_icon="🎬",
     layout="wide"
 )
@@ -11,82 +10,147 @@ st.set_page_config(
 st.markdown("""
 <style>
 
+.stApp {
+    background: linear-gradient(
+        135deg,
+        #050505 0%,
+        #09090b 50%,
+        #0f172a 100%
+    );
+}
+
 .main {
-    background-color: #0E1117;
+    color: #e5e7eb;
 }
 
 .block-container {
     padding-top: 2rem;
+    max-width: 1200px;
+}
+
+.big-title {
+    text-align: center;
+    font-size: 3.4rem;
+    font-weight: 800;
+    color: white;
+    margin-bottom: 0.4rem;
+}
+
+.subtitle {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 1rem;
+    margin-bottom: 2rem;
+}
+
+.result-positive {
+    background: rgba(59,130,246,0.06);
+    border: 1px solid rgba(59,130,246,0.12);
+    border-radius: 20px;
+    padding: 24px;
+}
+
+.result-negative {
+    background: rgba(148,163,184,0.06);
+    border: 1px solid rgba(148,163,184,0.12);
+    border-radius: 20px;
+    padding: 24px;
 }
 
 .stButton > button {
     width: 100%;
-    height: 3.2rem;
-    border-radius: 12px;
+    height: 58px;
+    border-radius: 14px;
     font-size: 18px;
     font-weight: 600;
 }
 
-.metric-card {
-    background-color: #1E1E1E;
-    padding: 20px;
-    border-radius: 15px;
-    text-align: center;
+@keyframes growBar {
+    from {
+        width: 0%;
+    }
+}
+
+.sentiment-bar {
+    width: 100%;
+    height: 14px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.sentiment-fill-positive {
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        #4f46e5,
+        #6366f1
+    );
+    animation: growBar 1.2s ease-out;
+}
+
+.sentiment-fill-negative {
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        #334155,
+        #475569
+    );
+    animation: growBar 1.2s ease-out;
+}
+
+hr {
+    border-color: rgba(255,255,255,0.08);
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown(
-    """
-    <h1 style='text-align:center;'>
-        🎬 IMDb Sentiment Analyzer
-    </h1>
+st.markdown("""
+<div class='big-title'>
+🎬 AI Movie Review Analyzer
+</div>
 
-    <p style='text-align:center; font-size:18px;'>
-        Analyze movie reviews using Machine Learning and Deep Learning models
-    </p>
-    """,
-    unsafe_allow_html=True
-)
+<div class='subtitle'>
+Analyze movie reviews using Machine Learning and Deep Learning
+</div>
+""", unsafe_allow_html=True)
 
-st.divider()
+left, right = st.columns([3, 1])
 
-left_col, right_col = st.columns([2, 1])
-
-with left_col:
+with left:
 
     review_text = st.text_area(
         "Movie Review",
-        height=250,
-        placeholder="Type your movie review here..."
+        height=260,
+        placeholder="Write your movie review here..."
     )
 
-with right_col:
+with right:
 
-    model_type = st.selectbox(
-        "Choose Model",
+    st.markdown("### 🤖 Model")
+
+    model_choice = st.radio(
+        "",
         [
-            "logistic_regression",
-            "pytorch"
+            "Logistic Regression",
+            "PyTorch"
         ]
     )
 
-    st.info(
-        f"Current Model:\n\n{model_type}"
-    )
+    if model_choice == "Logistic Regression":
+        model_type = "logistic_regression"
+    else:
+        model_type = "pytorch"
 
-predict_button = st.button(
-    "🚀 Analyze Sentiment"
-)
+predict = st.button("🚀 Analyze Sentiment")
 
-if predict_button:
+if predict:
 
     if not review_text.strip():
 
-        st.warning(
-            "Please enter a movie review."
-        )
+        st.warning("Please enter a movie review.")
 
     else:
 
@@ -108,66 +172,90 @@ if predict_button:
                 result = response.json()
 
                 sentiment = result["sentiment"]
-                confidence = result["confidence"]
+                confidence = result.get(
+                    "confidence",
+                    0
+                )
 
-                st.divider()
+                positive_prob = result.get(
+                    "positive_probability",
+                    0
+                )
 
-                result_col, chart_col = st.columns([1, 1])
+                negative_prob = result.get(
+                    "negative_probability",
+                    0
+                )
 
-                with result_col:
+                st.markdown("---")
 
-                    st.subheader(
-                        "Prediction Result"
+                st.subheader("Prediction Result")
+
+                if sentiment.lower() == "positive":
+
+                    st.markdown(
+                        f"""
+                        <div class='result-positive'>
+                            <h2>😊 Positive Review</h2>
+                            <h1>{confidence:.2%}</h1>
+                            <p>Confidence Score</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
                     )
 
-                    if sentiment.lower() == "positive":
+                else:
 
-                        st.success(
-                            "😊 Positive Review"
-                        )
-
-                    else:
-
-                        st.error(
-                            "😞 Negative Review"
-                        )
-
-                    st.metric(
-                        "Confidence",
-                        f"{confidence:.2%}"
+                    st.markdown(
+                        f"""
+                        <div class='result-negative'>
+                            <h2>😞 Negative Review</h2>
+                            <h1>{confidence:.2%}</h1>
+                            <p>Confidence Score</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
                     )
 
-                    st.progress(confidence)
+                st.markdown("<br>", unsafe_allow_html=True)
 
-                    st.info(
-                        f"Model Used: {model_type}"
-                    )
+                st.markdown("### Sentiment Breakdown")
 
-                with chart_col:
+                st.caption(
+                    f"Model Used: {model_choice}"
+                )
 
-                    fig = go.Figure(
-                        go.Indicator(
-                            mode="gauge+number",
-                            value=confidence * 100,
-                            title={
-                                "text": "Confidence Score"
-                            },
-                            gauge={
-                                "axis": {
-                                    "range": [0, 100]
-                                }
-                            }
-                        )
-                    )
+                st.markdown(
+                    f"""
+                    <p>Positive</p>
 
-                    fig.update_layout(
-                        height=350
-                    )
+                    <div class="sentiment-bar">
+                        <div
+                            class="sentiment-fill-positive"
+                            style="width:{positive_prob*100:.1f}%;">
+                        </div>
+                    </div>
 
-                    st.plotly_chart(
-                        fig,
-                        use_container_width=True
-                    )
+                    <p>{positive_prob:.2%}</p>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+                st.markdown(
+                    f"""
+                    <p>Negative</p>
+
+                    <div class="sentiment-bar">
+                        <div
+                            class="sentiment-fill-negative"
+                            style="width:{negative_prob*100:.1f}%;">
+                        </div>
+                    </div>
+
+                    <p>{negative_prob:.2%}</p>
+                    """,
+                    unsafe_allow_html=True
+                )
 
             else:
 
@@ -193,46 +281,13 @@ if predict_button:
                 f"Unexpected Error: {str(e)}"
             )
 
-st.divider()
+st.markdown("---")
 
-st.subheader(
-    "Model Performance"
-)
-
-col1, col2 = st.columns(2)
-
-with col1:
-
-    st.image(
-        "artifacts/training_accuracy.png",
-        caption="Training Accuracy"
-    )
-
-with col2:
-
-    st.image(
-        "artifacts/confusion_matrix.png",
-        caption="Confusion Matrix"
-    )
-
-st.divider()
-
-metric1, metric2 = st.columns(2)
-
-with metric1:
-
-    st.metric(
-        "Logistic Regression",
-        "~89%"
-    )
-
-with metric2:
-
-    st.metric(
-        "PyTorch",
-        "~88%"
-    )
-
-st.caption(
-    "Built using Streamlit, FastAPI, Scikit-Learn and PyTorch."
+st.markdown(
+    """
+    <div style='text-align:center;color:#64748B'>
+        Built with FastAPI • PyTorch • Scikit-Learn • Streamlit
+    </div>
+    """,
+    unsafe_allow_html=True
 )

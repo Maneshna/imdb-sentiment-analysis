@@ -56,6 +56,8 @@ class PredictionRequest(BaseModel):
 class PredictionResponse(BaseModel):
     sentiment: str
     confidence: float
+    positive_probability: float
+    negative_probability: float
 
 # PyTorch Model
 
@@ -133,39 +135,59 @@ def pad_sequence(
 
 def predict_pytorch(text):
 
-    encoded = encode_text(text,vocab)
+    encoded = encode_text(text, vocab)
 
-    padded = pad_sequence(encoded,MAX_LENGTH)
+    padded = pad_sequence(
+        encoded,
+        MAX_LENGTH
+    )
 
-    tensor = torch.tensor([padded],dtype=torch.long)
-
-    
+    tensor = torch.tensor(
+        [padded],
+        dtype=torch.long
+    )
 
     with torch.no_grad():
 
         outputs = pytorch_model(tensor)
-        
-        probabilities = torch.softmax(outputs,dim=1)
 
-        prediction = torch.argmax(probabilities,dim=1).item()
+        probabilities = torch.softmax(
+            outputs,
+            dim=1
+        )
 
-        confidence = probabilities.max().item()
-        
+        prediction = torch.argmax(
+            probabilities,
+            dim=1
+        ).item()
 
-    sentiment = ("positive"
+        confidence = (
+            probabilities.max()
+            .item()
+        )
+
+        negative_probability = (
+            probabilities[0][0]
+            .item()
+        )
+
+        positive_probability = (
+            probabilities[0][1]
+            .item()
+        )
+
+    sentiment = (
+        "positive"
         if prediction == 1
         else "negative"
     )
 
     return (
         sentiment,
-        confidence
+        confidence,
+        positive_probability,
+        negative_probability
     )
-   
-
-
-
-
 
 @app.get("/")
 def home():
@@ -184,18 +206,21 @@ def predict_sentiment(
     request: PredictionRequest
 ):
 
-    cleaned_text = clean_text(request.text)
-
-    # PyTorch Prediction
-    
+    cleaned_text = clean_text(
+        request.text
+    )
 
     if request.model_type == "pytorch":
 
-        sentiment, confidence = (
-            predict_pytorch(cleaned_text))
-  
-    # Logistic Regression
-    
+        (
+            sentiment,
+            confidence,
+            positive_probability,
+            negative_probability
+        ) = predict_pytorch(
+            cleaned_text
+        )
+
     else:
 
         vector = vectorizer.transform(
@@ -212,13 +237,28 @@ def predict_sentiment(
             )[0]
         )
 
-        sentiment = (encoder.inverse_transform([prediction])[0])
+        negative_probability = float(
+            probabilities[0]
+        )
 
-        confidence = float(
-            max(probabilities)
+        positive_probability = float(
+            probabilities[1]
+        )
+
+        sentiment = (
+            encoder.inverse_transform(
+                [prediction]
+            )[0]
+        )
+
+        confidence = max(
+            positive_probability,
+            negative_probability
         )
 
     return PredictionResponse(
         sentiment=sentiment,
-        confidence=confidence
+        confidence=confidence,
+        positive_probability=positive_probability,
+        negative_probability=negative_probability
     )
